@@ -274,6 +274,7 @@ class Orientation(Packet):
         self.acc = 0.061 * data[0:3]  # Unit [mg/LSB]
         self.gyro = 8.750 * data[3:6]  # Unit [mdps/LSB]
         self.mag = 1.52 * data[6:]  # Unit [mgauss/LSB]
+        self.NED = np.zeros((3, 3))
 
     def _check_fletcher(self, fletcher):
         assert fletcher == b'\xaf\xbe\xad\xde', "Fletcher error!"
@@ -290,6 +291,18 @@ class Orientation(Packet):
     def push_to_dashboard(self, dashboard):
         data = self.acc.tolist() + self.gyro.tolist() + self.mag.tolist()
         dashboard.doc.add_next_tick_callback(partial(dashboard.update_orn, timestamp=self.timestamp, orn_data=data))
+
+    def compute_angle(self, init_set=None):
+        #TO CHECK WITH APP
+        theta = np.arctan(self.NED[2][2])/np.pi*180
+        phi = np.arctan(self.NED[2][1]/self.NED[2][0])/np.pi*180
+        #self.acc=theta*np.ones(3)
+        #self.gyro=phi*np.ones(3)
+        self.acc = self.NED[2]
+        self.gyro = self.NED[1]
+        self.mag = self.NED[0]
+        return [theta, phi]
+
 
 
 class Environment(Packet):
@@ -359,7 +372,7 @@ class TimeStamp(Packet):
 
     def _check_fletcher(self, fletcher):
         assert fletcher == b'\xff\xff\xff\xff', "Fletcher error!"
-    
+
     def translate(self):
         now = datetime.now()
         timestamp = int(1000000000 * datetime.timestamp(now))  # time stamp in nanosecond
@@ -382,7 +395,7 @@ class TimeStamp(Packet):
     def push_to_lsl(self, outlet):
         outlet.push_sample([1])
 
-        
+
 class MarkerEvent(Packet):
     """Marker packet"""
 
